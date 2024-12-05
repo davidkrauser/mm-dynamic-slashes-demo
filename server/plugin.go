@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +14,8 @@ import (
 	"github.com/mattermost/mattermost/server/public/pluginapi"
 	"github.com/mattermost/mattermost/server/public/pluginapi/cluster"
 )
+
+const externalActionServer = "http://localhost:3000"
 
 // Plugin implements the interface expected by the Mattermost server to communicate between the server and plugin processes.
 type Plugin struct {
@@ -26,7 +30,7 @@ type Plugin struct {
 }
 
 func updateSlashActions(client *pluginapi.Client, etag *string) error {
-	req, err := http.NewRequest("GET", "http://localhost:3000/list-actions", nil)
+	req, err := http.NewRequest("GET", externalActionServer+"/list-actions", nil)
 	if err != nil {
 		return fmt.Errorf("can't create req: %w", err)
 	}
@@ -91,8 +95,40 @@ func (p *Plugin) OnActivate() error {
 
 // ExecuteCommand executes a command that has been previously registered via the RegisterCommand API.
 func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
-	return &model.CommandResponse{
-		ResponseType: model.CommandResponseTypeEphemeral,
-		Text:         "Unknown command: " + args.Command,
-	}, nil
+	body := make(map[string]string)
+	body["action"] = args.Command
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return &model.CommandResponse{
+			ResponseType: model.CommandResponseTypeEphemeral,
+			Text:         "Error building request: " + err.Error(),
+		}, nil
+	}
+
+	resp, err := http.Post(externalActionServer+"/perform-action", "application/json", bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return &model.CommandResponse{
+			ResponseType: model.CommandResponseTypeEphemeral,
+			Text:         "Error sending request: " + err.Error(),
+		}, nil
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return &model.CommandResponse{
+			ResponseType: model.CommandResponseTypeEphemeral,
+			Text:         "Error reading request response: " + err.Error(),
+		}, nil
+	}
+	defer resp.Body.Close()
+
+	var commandResponse model.CommandResponse
+	if err := json.Unmarshal(respBody, &commandResponse); err != nil {
+		return &model.CommandResponse{
+			ResponseType: model.CommandResponseTypeEphemeral,
+			Text:         "Error parsing request response: " + err.Error(),
+		}, nil
+	}
+
+	return &commandResponse, nil
 }
