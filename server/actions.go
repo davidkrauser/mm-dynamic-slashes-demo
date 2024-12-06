@@ -32,17 +32,12 @@ func (defs actionDefinitions) commandFromAction(action string) (*model.Command, 
 	if len(tokens) < 1 {
 		return nil, errors.New("definition is empty")
 	}
+
 	autocompleteData := model.NewAutocompleteData(tokens[0], "", "")
 	for _, token := range tokens[1:] {
-		var items []model.AutocompleteListItem
-		for _, arg := range defs[token] {
-			items = append(items, model.AutocompleteListItem{
-				Item:     arg,
-				HelpText: token,
-			})
-		}
-		autocompleteData.AddStaticListArgument(token, true, items)
+		autocompleteData.AddDynamicListArgument(token, "/plugins/com.mattermost.demo-dynamic-slash-commands", true)
 	}
+
 	return &model.Command{
 		Trigger:          tokens[0],
 		AutoComplete:     true,

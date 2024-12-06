@@ -132,3 +132,9 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 
 	return &commandResponse, nil
 }
+
+func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
+	parsed := r.FormValue("parsed")
+	p.API.LogInfo("Partial command", "parsed", parsed)
+	w.WriteHeader(200)
+}
