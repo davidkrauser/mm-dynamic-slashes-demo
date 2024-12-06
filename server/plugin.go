@@ -46,7 +46,6 @@ func updateSlashActions(client *pluginapi.Client, etag *string) error {
 
 	// nothing to do
 	if resp.StatusCode == 304 {
-		client.Log.Info("Slash actions already up to date")
 		return nil
 	}
 
@@ -75,8 +74,6 @@ func updateSlashActions(client *pluginapi.Client, etag *string) error {
 		}
 	}
 
-	client.Log.Info("Slash actions updated")
-
 	return nil
 }
 
@@ -85,7 +82,6 @@ func (p *Plugin) OnActivate() error {
 	var etag string
 	client := pluginapi.NewClient(p.API, p.Driver)
 	_, err := cluster.Schedule(p.API, "UpdateSlashActions", cluster.MakeWaitForInterval(2*time.Second), func() {
-		p.API.LogInfo("Updating slash actions")
 		if err := updateSlashActions(client, &etag); err != nil {
 			p.API.LogError("error updating slash actions", "error", err)
 		}
